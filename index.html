@@ -2,10 +2,10 @@
 <link rel="stylesheet" href="./mountains.css">
 <script src="./mountains.js"></script>
 <title>MountainScape</title>
-<body onresize="scaleRes()" onload="mtnGen()">
+<body onresize="scaleCanvas()" onload="setupCanvas(); draw()">
 	<div class="center-column">
 		<h1 class="title">MountainScape</h1>
-		<a id="submit" onclick="mtnGen()">Generate mountainscape</a>
-		<canvas id="mtn" />
+		<a id="submit" onclick="draw()">Generate mountain scape</a>
+		<canvas id="mountain" />
 	</div>
 </body>
