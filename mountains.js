@@ -53,32 +53,28 @@ function randomFloatInRange(min, max) {
 	return randomFloat() * (max - min) + min
 }
 
-
-// Calculate gradients
-// except in the one dimensional case where the gradients are random scalars between -1 and 1
-
-function generateGradients(step) {
+function generateGradients(wavelength) {
 	let gradients = []
-	for (let x = 0; x < width + step; x += step) {
+	for (let x = 0; x < width + wavelength; x += wavelength) {
 		gradients.push(randomFloatInRange(-1, 1))
 	}
 
 	return gradients
 }
 
-function getCornerGradients(x, step, gradients) {
-	const cell = Math.floor(x / step)
+function getCornerGradients(x, wavelength, gradients) {
+	const cell = Math.floor(x / wavelength)
 	return [gradients[cell], gradients[cell + 1]]
 }
 
-function getOffsetVectors(x, step, cornerGradients) {
-	const scaledX = (x % step) / step
-	return [-scaledX, 1 - scaledX]
+function getOffsetVectors(x, wavelength) {
+	const normalizedX = (x % wavelength) / wavelength
+	return [-normalizedX, 1 - normalizedX]
 }
 
-function getDotProducts(x, step, gradients) {
-	const cornerGradients = getCornerGradients(x, step, gradients)
-	const offsetVectors = getOffsetVectors(x, step, cornerGradients)
+function getDotProducts(x, wavelength, gradients) {
+	const cornerGradients = getCornerGradients(x, wavelength, gradients)
+	const offsetVectors = getOffsetVectors(x, wavelength)
 	return [cornerGradients[0] * offsetVectors[0], cornerGradients[1] * offsetVectors[1]]
 }
 
@@ -92,24 +88,32 @@ function smoothstep(x) {
 	}
 }
 
-function interpolate(x, step, dotProducts) {
-	const scaledX = (x % step) / step
-	return dotProducts[0] + smoothstep(scaledX) * (dotProducts[1] - dotProducts[0])
+function interpolate(x, wavelength, dotProducts) {
+	const normalizedX = (x % wavelength) / wavelength
+	return dotProducts[0] + smoothstep(normalizedX) * (dotProducts[1] - dotProducts[0])
 }
 
-function perlin(frequency) {
-	if (frequency <= 0) {
-		throw Error('Frequency must be greater than 0.')
-	}
-
-	const gradients = generateGradients(frequency)
+function perlin(wavelength) {
+	const gradients = generateGradients(wavelength)
 	let noise = []
 
 	for (let x = 0; x < width; x++) {
-		const cornerGradients = getCornerGradients(x, frequency, gradients)
-		const dotProducts = getDotProducts(x, frequency, gradients)
-		const interpolated = interpolate(x, frequency, dotProducts)
+		const cornerGradients = getCornerGradients(x, wavelength, gradients)
+		const dotProducts = getDotProducts(x, wavelength, gradients)
+		const interpolated = interpolate(x, wavelength, dotProducts)
 		noise.push(interpolated)
+	}
+
+	return noise
+}
+
+function fractal(octaves, wavelength, gradients) {
+	let noise = perlin(wavelength)
+
+	for (let i = 1; i < octaves; i++) {
+		const factor = Math.pow(2, i)
+		const octaveNoise = perlin(wavelength / factor)
+		noise = noise.map((height, index) => height + octaveNoise[index] / factor)
 	}
 
 	return noise
@@ -122,13 +126,26 @@ function scaleY(y, scale, shift) {
 function formMountain() {
 	previousSeed = seed
 
-	const deviceScale = height / 1000
-	const frequency = 200 * deviceScale
+	const wavelength = width / 2
+	const octaves = 8
+	const gradients = generateGradients(wavelength, octaves)
 
-	let heights = perlin(frequency)
+	if (wavelength <= 0) {
+		throw Error('Wavelength must be greater than 0.')
+	}
 
-	const scale = 300 * deviceScale
-	const shift = 100 * deviceScale
+	if (octaves < 1) {
+		throw Error('Octaves must be greater than 0.')
+	}
+
+	const heights = fractal(octaves, wavelength)
+
+	const flatnessFactor = 2 // Larger is flatter
+	const scale = height / flatnessFactor
+	const heightSum = heights.reduce((first, second) => first + second) + heights.length
+	const averageHeight =  heightSum / heights.length * scale
+	const heightFactor = 0.5 // Between 0 and 1, represents where the average height of the noise will be relative to the height
+	const shift = (-height * heightFactor) + averageHeight
 
 	const padding = 5
 
