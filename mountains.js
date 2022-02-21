@@ -184,6 +184,12 @@ function fillBackground(colors, gradient=false) {
 	context.fillRect(0, 0, width, height)
 }
 
+function updateDownload() {
+	const downloadButton = document.getElementById('download')
+	downloadButton.href = canvas.toDataURL()
+	downloadButton.download = 'mountains.png'
+}
+
 function draw() {
 	clearCanvas()
 
@@ -224,4 +230,6 @@ function draw() {
 	peaks = 2
 	colors = ['#153b59', '#001f37']
 	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
+
+	updateDownload()
 }

@@ -31,18 +31,19 @@ body {
 	border-bottom: 1px solid var(--separator);
 }
 
-#submit {
+a {
 	all: unset;
 	background: royalblue;
 	border-radius: 5px;
 	color: white;
 	cursor: pointer;
 	padding: 10px;
-	margin-bottom: 20px;
+	margin: 20px 0;
+	transition: all 0.2s ease-in;
 }
 
 @media(hover: hover) {
-	#submit:hover {
+	a:hover {
 		color: lightskyblue;
 	}
 }
