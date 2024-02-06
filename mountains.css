@@ -1,12 +1,5 @@
 :root {
 	color-scheme: light dark;
-	--separator: black;
-}
-
-@media (prefers-color-scheme: dark) {
-	:root{
-		--separator: white;
-	}
 }
 
 html {
@@ -28,7 +21,7 @@ body {
 }
 
 .title {
-	border-bottom: 1px solid var(--separator);
+	border-bottom: 1px solid text;
 }
 
 a {
@@ -50,6 +43,5 @@ a {
 
 #mountain {
 	border-radius: 5px;
-	border: 0.1px solid var(--separator);
 	width: 80%;
 }

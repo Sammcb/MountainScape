@@ -8,14 +8,15 @@ function clearCanvas() {
 	context.clearRect(0, 0, width, height)
 }
 
-// Store seed for redrawing on scale
-let previousSeed = 1
+function createMountainScape() {
+	config.seed = nextSeed(config.seed)
+	draw()
+}
 
 function scaleCanvas() {
 	// Set canvas visible height
 	const cssWidth = canvas.offsetWidth
 	const cssHeight = Math.floor(cssWidth / 2)
-	canvas.style.height = `${cssHeight}px`
 
 	// Retina display support
 	const scale = window.devicePixelRatio
@@ -25,7 +26,6 @@ function scaleCanvas() {
 	canvas.height = height
 
 	// Redraw
-	seed = previousSeed
 	draw()
 }
 
@@ -36,27 +36,29 @@ function setupCanvas() {
 	scaleCanvas()
 }
 
-// Randomizer
-let seed = 1
+function nextSeed(seed) {
+	return (config.rng.a * seed + config.rng.c) % config.rng.m
+}
 
 // Returns a random float in the range [0, 1]
-function randomFloat() {
-	const m = 4294967296
-	const a = 1664525
-	const c = 1
-	seed = (a * seed + c) % m
-	return seed / m 
+function randomFloat(seed) {
+	const newSeed = nextSeed(seed)
+	return [newSeed / config.rng.m, newSeed]
 }
 
 // Returns a random float in the range [min, max]
-function randomFloatInRange(min, max) {
-	return randomFloat() * (max - min) + min
+function randomFloatInRange(min, max, seed) {
+	const [random, newSeed] = randomFloat(seed)
+	return [random * (max - min) + min, newSeed]
 }
 
-function generateGradients(wavelength) {
+function generateGradients(wavelength, initialSeed) {
+	let seed = initialSeed
 	let gradients = []
 	for (let x = 0; x < width + wavelength; x += wavelength) {
-		gradients.push(randomFloatInRange(-1, 1))
+		const [random, newSeed] = randomFloatInRange(-1, 1, seed)
+		seed = newSeed
+		gradients.push(random)
 	}
 
 	return gradients
@@ -93,8 +95,8 @@ function interpolate(x, wavelength, dotProducts) {
 	return dotProducts[0] + smoothstep(normalizedX) * (dotProducts[1] - dotProducts[0])
 }
 
-function perlin(wavelength) {
-	const gradients = generateGradients(wavelength)
+function perlin(wavelength, initialSeed) {
+	const gradients = generateGradients(wavelength, initialSeed)
 	let noise = []
 
 	for (let x = 0; x < width; x++) {
@@ -107,12 +109,12 @@ function perlin(wavelength) {
 	return noise
 }
 
-function fractal(octaves, wavelength, gradients) {
-	let noise = perlin(wavelength)
+function fractal(octaves, wavelength, initialSeed) {
+	let noise = perlin(wavelength, initialSeed)
 
 	for (let i = 1; i < octaves; i++) {
 		const factor = Math.pow(2, i)
-		const octaveNoise = perlin(wavelength / factor)
+		const octaveNoise = perlin(wavelength / factor, initialSeed + i)
 		noise = noise.map((height, index) => height + octaveNoise[index] / factor)
 	}
 
@@ -123,11 +125,8 @@ function scaleY(y, scale, shift) {
 	return (y + 1) * scale + shift
 }
 
-function formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=false) {
-	previousSeed = seed
-
+function getHeights(octaves, flatness, heightScaler, peaks, initialSeed) {
 	const wavelength = width / peaks
-	const gradients = generateGradients(wavelength, octaves)
 
 	if (wavelength <= 0) {
 		throw Error('Wavelength must be greater than 0.')
@@ -137,50 +136,39 @@ function formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, grad
 		throw Error('Octaves must be greater than 0.')
 	}
 
-	const heights = fractal(octaves, wavelength)
-
-	const scale = height / flatnessFactor
+	const heights = fractal(octaves, wavelength, initialSeed)
+	const scale = height / flatness
 	const heightSum = heights.reduce((first, second) => first + second) + heights.length
 	const averageHeight =  heightSum / heights.length * scale
-	const shift = (-height * heightFactor) + averageHeight
+	const shift = (-height * heightScaler) + averageHeight
+	const scaledHeights = heights.map(height => scaleY(height, scale, shift))
+	return scaledHeights
+}
 
-	const padding = 5
+function formMountain(octaves, flatness, heightScaler, peaks, colors, initialSeed) {
+	const heights = getHeights(octaves, flatness, heightScaler, peaks, initialSeed)
 
 	context.beginPath()
-	context.strokeStyle = colors[0]
-	if (gradient) {
-		const minHeight = scaleY(Math.min(...heights), scale, shift)
-		const gradient = context.createLinearGradient(0, minHeight, 0, height)
-		gradient.addColorStop(0, colors[0])
-		gradient.addColorStop(1, colors[1])
-		context.fillStyle = gradient
-	} else {
-		context.fillStyle = colors[0]
-	}
-	context.moveTo(-padding, height)
-	context.lineTo(-padding, scaleY(heights[0], scale, shift))
 
-	for (let x = 1; x < width; x++) {
-		const y = scaleY(heights[x], scale, shift)
-		context.lineTo(x, y)
-	}
+	const minHeight = Math.min(...heights)
+	const gradient = context.createLinearGradient(0, minHeight, 0, height)
+	const lastIndex = colors.length > 1 ? colors.length - 1 : 1
+	colors.forEach((color, index) => gradient.addColorStop(index / lastIndex, `#${color}`))
+	context.fillStyle = gradient
 
-	context.lineTo(width + padding, scaleY(heights[width - 1], scale, shift))
-	context.lineTo(width + padding, height)
-
+	context.moveTo(0, height)
+	heights.forEach((height, index) => context.lineTo(index, height))
+	context.lineTo(heights.length - 1, height)
 	context.closePath()
+
 	context.fill()
 }
 
-function fillBackground(colors, gradient=false) {
-	if (gradient) {
-		const gradient = context.createLinearGradient(0, 0, 0, height)
-		gradient.addColorStop(0, colors[0])
-		gradient.addColorStop(1, colors[1])
-		context.fillStyle = gradient
-	} else {
-		context.fillStyle = colors[0]
-	}
+function fillBackground(colors) {
+	const gradient = context.createLinearGradient(0, 0, 0, height)
+	const lastIndex = colors.length > 1 ? colors.length - 1 : 1
+	colors.forEach((color, index) => gradient.addColorStop(index / lastIndex, `#${color}`))
+	context.fillStyle = gradient
 	context.fillRect(0, 0, width, height)
 }
 
@@ -193,43 +181,134 @@ function updateDownload() {
 function draw() {
 	clearCanvas()
 
-	fillBackground(['#cbe8ff'])
+	fillBackground(config.background)
 
-	// Larger = rougher terrain
-	let octaves = 8
-	// Larger = flatter mountains
-	let flatnessFactor = 3
-	// Represents where the average height of the noise will be relative to the height
-	let heightFactor = 0.3
-	// The number of mountain peaks
-	let peaks = 5
-	// Color of the mountain
-	let colors = ['#a0d5ff', '#498ec4']
-	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
-
-	flatnessFactor = 3
-	heightFactor = 0.05
-	peaks = 3
-	colors = ['#498ec4', '#1d6caa']
-	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
-
-	flatnessFactor = 4
-	heightFactor = -0.2
-	peaks = 3
-	colors = ['#1d6caa', '#0e5a95']
-	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
-
-	flatnessFactor = 2
-	heightFactor = 0.25
-	peaks = 3
-	colors = ['#0e5a95', '#153b59']
-	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
-
-	flatnessFactor = 4
-	heightFactor = -0.4
-	peaks = 2
-	colors = ['#153b59', '#001f37']
-	formMountain(octaves, flatnessFactor, heightFactor, peaks, colors, gradient=true)
+	config.mountains.forEach((mountain, index) => {
+		formMountain(mountain.octaves, mountain.flatness, mountain.height, mountain.peaks, mountain.colors, config.seed + index)
+	})
 
 	updateDownload()
+	updateSVG()
+}
+
+function svgGradient(colors, id) {
+	const namespace = 'http://www.w3.org/2000/svg'
+	const gradient = document.createElementNS(namespace, 'linearGradient')
+	gradient.setAttribute('id', id)
+	gradient.setAttribute('x1', '0')
+	gradient.setAttribute('x2', '0')
+	gradient.setAttribute('y1', '0')
+	gradient.setAttribute('y2', '1')
+
+	const lastIndex = colors.length > 1 ? colors.length - 1 : 1
+	colors.forEach((color, index) => {
+		const stop = document.createElementNS(namespace, 'stop')
+		stop.setAttribute('offset', `${index / lastIndex * 100}%`)
+		stop.setAttribute('stop-color', `#${color}`)
+		gradient.appendChild(stop)
+	})
+
+	return gradient
+}
+
+function updateSVG() {
+	const namespace = 'http://www.w3.org/2000/svg'
+	const svg = document.createElementNS(namespace, 'svg')
+	svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
+	svg.setAttribute('width', `${width}`)
+	svg.setAttribute('height', `${height}`)
+
+	const defs = document.createElementNS(namespace, 'defs')
+
+	const backgroundGradientId = 'background'
+	const backgroundGradient = svgGradient(config.background, backgroundGradientId)
+	defs.appendChild(backgroundGradient)
+
+	const background = document.createElementNS(namespace, 'rect')
+	background.setAttribute('x', '0')
+	background.setAttribute('y', '0')
+	background.setAttribute('width', `${width}`)
+	background.setAttribute('height', `${height}`)
+	background.setAttribute('fill', `url(#${backgroundGradientId})`)
+	svg.appendChild(background)
+
+	config.mountains.forEach((mountain, index) => {
+		const heights = getHeights(mountain.octaves, mountain.flatness, mountain.height, mountain.peaks, config.seed + index)
+		const minHeight = Math.min(...heights)
+
+		const gradientId = `mountain${index}`
+		const gradient = svgGradient(mountain.colors, gradientId)
+		defs.appendChild(gradient)
+
+		const path = document.createElementNS(namespace, 'path')
+		const pathComponents = [`M 0 ${height}`]
+
+		pathComponents.push(...heights.map((height, index) => `L ${index} ${height}`))
+
+		pathComponents.push(...[`L ${heights.length - 1} ${height}`, 'Z'])
+		
+		path.setAttribute('d', pathComponents.join(' '))
+		path.setAttribute('fill', `url(#${gradientId})`)
+		svg.appendChild(path)
+	})
+
+	svg.appendChild(defs)
+
+	const downloadButton = document.getElementById('downloadSVG')
+	const svgData = btoa(unescape(encodeURIComponent(svg.outerHTML)))
+	downloadButton.href = `data:text/html;base64,${svgData}`
+	downloadButton.download = 'mountains.svg'
+}
+
+// octaves: Int | larger = rougher terrain
+// flatness: Double | larger = flatter mountains
+// height: Double | represents where the average height of the noise will be relative to the height of the canvas
+// peaks: Int | number of mountain peaks
+// colors: [String] | color of the mountain. if gradient: should contain 2 colors (top, bottom), else: should contain 1 color
+// gradient: Bool | wether the mountain color is a gradient or solid color
+const config = {
+	'rng': {
+		'm': 4294967296,
+		'a': 1664525,
+		'c': 1
+	},
+	'seed': 1,
+	'background': ['cbe8ff'],
+	'mountains': [
+		{
+			'octaves': 8,
+			'flatness': 3,
+			'height': 0.3,
+			'peaks': 5,
+			'colors': ['a0d5ff', '498ec4']
+		},
+		{
+			'octaves': 8,
+			'flatness': 3,
+			'height': 0.05,
+			'peaks': 3,
+			'colors': ['498ec4', '1d6caa']
+		},
+		{
+			'octaves': 8,
+			'flatness': 4,
+			'height': -0.2,
+			'peaks': 3,
+			'colors': ['1d6caa', '0e5a95']
+		},
+		{
+			'octaves': 8,
+			'flatness': 2,
+			'height': 0.25,
+			'peaks': 3,
+			'colors': ['0e5a95', '153b59']
+		},
+		{
+			'octaves': 8,
+			'flatness': 4,
+			'height': -0.4,
+			'peaks': 2,
+			'colors': ['153b59', '001f37']
+		}
+	]
 }
