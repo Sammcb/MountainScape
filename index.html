@@ -1,13 +1,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="./mountains.css">
-<script src="./mountains.js"></script>
+<script src="assets/scripts/config.js"></script>
+<script src="assets/scripts/mountains.js"></script>
+<script src="assets/scripts/canvas.js"></script>
+<script src="assets/scripts/svg.js"></script>
 <title>MountainScape</title>
-<body onresize="scaleCanvas()" onload="setupCanvas(); draw()">
+<body onresize="scaleCanvas()" onload="scaleCanvas(); updateSVG()">
 	<div class="center-column">
-		<h1 class="title">MountainScape</h1>
-		<a id="submit" onclick="createMountainScape()">Generate mountain scape</a>
+		<h1>MountainScape</h1>
+		<a id="submit" onclick="generateMountainScape(); draw()">Generate mountain scape</a>
 		<canvas id="mountain"></canvas>
-		<a id="download" href="" download="">Download</a>
-		<a id="downloadSVG" href="" download="">Download SVG</a>
+		<div class="center-row">
+			<a id="download" href="" download="mountains.png">Download .png</a>
+			<a id="downloadSVG" href="" download="mountains.svg">Download .svg</a>
+		</div>
 	</div>
 </body>
