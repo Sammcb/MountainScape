@@ -24,9 +24,9 @@ function updateSVG() {
 	svg.setAttribute('xmlns', namespace)
 
 	const width = 2048
-	const height = width / 2
+	const maxHeight = width / 2
 	svg.setAttribute('width', `${width}`)
-	svg.setAttribute('height', `${height}`)
+	svg.setAttribute('height', `${maxHeight}`)
 
 	const defs = document.createElementNS(namespace, 'defs')
 
@@ -38,12 +38,12 @@ function updateSVG() {
 	background.setAttribute('x', '0')
 	background.setAttribute('y', '0')
 	background.setAttribute('width', `${width}`)
-	background.setAttribute('height', `${height}`)
+	background.setAttribute('height', `${maxHeight}`)
 	background.setAttribute('fill', `url(#${backgroundGradientId})`)
 	svg.appendChild(background)
 
 	config.mountains.forEach((mountain, index) => {
-		const heights = getHeights(width, height, mountain.octaves, mountain.flatness, mountain.height, mountain.peaks, config.seed + index)
+		const heights = getHeights(width + 1, maxHeight, mountain.octaves, mountain.flatness, mountain.height, mountain.peaks, config.seed + index)
 		const minHeight = Math.min(...heights)
 
 		const gradientId = `mountain${index}`
@@ -51,18 +51,18 @@ function updateSVG() {
 		defs.appendChild(gradient)
 
 		const path = document.createElementNS(namespace, 'path')
-		const pathComponents = [`M 0 ${height}`]
+		const pathComponents = [`M 0 ${maxHeight}`]
 
-		pathComponents.push(...heights.map((height, index) => `L ${index} ${height}`))
+		pathComponents.push(...heights.map((height, heightIndex) => `L ${heightIndex} ${height}`))
 
-		pathComponents.push(...[`L ${heights.length - 1} ${height}`, 'Z'])
+		pathComponents.push(...[`L ${heights.length - 1} ${maxHeight}`, 'Z'])
 		
 		path.setAttribute('d', pathComponents.join(' '))
 		path.setAttribute('fill', `url(#${gradientId})`)
 		svg.appendChild(path)
 	})
 
-	svg.insertBefore(defs, svg.firstChild)
+	svg.appendChild(defs)
 
 	const downloadButton = document.getElementById('downloadSVG')
 	const svgData = btoa(unescape(encodeURIComponent(svg.outerHTML)))
