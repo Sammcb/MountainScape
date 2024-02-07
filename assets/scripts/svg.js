@@ -62,7 +62,7 @@ function updateSVG() {
 		svg.appendChild(path)
 	})
 
-	svg.appendChild(defs)
+	svg.insertBefore(defs, svg.firstChild)
 
 	const downloadButton = document.getElementById('downloadSVG')
 	const svgData = btoa(unescape(encodeURIComponent(svg.outerHTML)))
