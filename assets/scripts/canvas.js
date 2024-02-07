@@ -27,7 +27,7 @@ function formMountain(octaves, flatness, heightScaler, peaks, colors, initialSee
 	const canvas = document.getElementById(canvasId)
 	const context = canvas.getContext('2d')
 
-	const heights = getHeights(canvas.width, canvas.height, octaves, flatness, heightScaler, peaks, initialSeed)
+	const heights = getHeights(canvas.width + 1, canvas.height, octaves, flatness, heightScaler, peaks, initialSeed)
 
 	context.beginPath()
 
